@@ -251,7 +251,7 @@ Started CatalogoProductosApplication in 0.7 seconds
 - [x] **Fase 2** — Proyecto Spring Boot configurado y ejecutándose sin errores.
 - [x] **Fase 3** — Modelar `Producto`, cargar 8 productos en memoria e implementar el controlador.
 - [x] **Fase 4** — Matriz de 6 pruebas en Postman, documentadas e interpretadas.
-- [ ] **Fase 5** — Diagrama de arquitectura en draw.io con los dos recorridos.
+- [x] **Fase 5** — Diagrama de arquitectura en draw.io con los dos recorridos.
 
 ---
 
@@ -424,3 +424,97 @@ en `createdId` y verifica el nombre, confirmando que el elemento agregado es el 
   realmente creado en vez de depender solo de un identificador escrito manualmente.
 - Se documentaron preparación, entradas, resultados esperados, resultados reales e interpretación para
   que la ejecución sea repetible y verificable por otra persona.
+
+---
+
+## Fase 5 — Diagrama de arquitectura
+
+El diagrama se encuentra en [`docs/arquitectura.drawio`](docs/arquitectura.drawio) y contiene **dos
+páginas**, una por cada recorrido exigido. Ambas se incluyen además como imágenes en `docs/` para poder
+consultarlas sin abrir el editor. Para abrirlo: entrar a [draw.io](https://app.diagrams.net),
+elegir `File` → `Open From` → `Device` y seleccionar el archivo. Las dos páginas aparecen como pestañas
+en la parte inferior del editor.
+
+| Página | Recorrido representado | Petición | Código |
+|---|---|---|---|
+| Recorrido A | Consulta exitosa | `GET /api/productos/3` | `200 OK` |
+| Recorrido B | Recurso inexistente | `GET /api/productos/999` | `404 Not Found` |
+
+### Bloques representados
+
+Ambas páginas muestran la misma arquitectura; lo que cambia es el trayecto dibujado sobre ella.
+
+- **Cliente / Postman** — origen de la petición HTTP y destino de la respuesta. Está fuera del
+  contenedor de la aplicación porque es un proceso externo.
+- **Aplicación Spring Boot** — contenedor que agrupa lo que vive dentro del proceso Java, rotulado con
+  el servidor Tomcat embebido y el puerto 8080.
+- **DispatcherServlet** — *Front Controller* de Spring. Recibe toda petición entrante y la enruta al
+  método del controlador cuya anotación coincide con el método HTTP y la ruta solicitados.
+- **ProductoController** — controlador REST, con sus anotaciones `@RestController`,
+  `@RequestMapping("/api/productos")` y `@GetMapping("/{id}")`.
+- **Productos en memoria** — el `List<Producto>` con los ocho productos precargados. Se dibuja como
+  cilindro por convención de almacenamiento, aunque no es una base de datos: son objetos en memoria que
+  se pierden al reiniciar la aplicación.
+- **Jackson (ObjectMapper)** — componente que convierte el objeto Java en JSON.
+- **HTTP Response** — la respuesta que sale hacia el cliente, rotulada con su código de estado.
+
+### Recorrido A — consulta exitosa (`200 OK`)
+
+| Paso | Qué ocurre |
+|---:|---|
+| 1 | Postman envía `GET /api/productos/3` al puerto 8080. |
+| 2 | El `DispatcherServlet` enruta al método anotado con `@GetMapping("/{id}")` y liga `@PathVariable Long id = 3`. |
+| 3 | El controlador busca el ID 3 dentro de la lista en memoria. |
+| 4 | Lo encuentra y obtiene el **objeto Java `Producto`**. |
+| 5 | `ResponseEntity.ok(producto)` entrega ese objeto a la capa de conversión. |
+| 6 | Jackson serializa el objeto a JSON y lo escribe en el cuerpo de la respuesta. |
+| 7 | La respuesta viaja a Postman con `200 OK`, `Content-Type: application/json` y el JSON del producto. |
+
+![Recorrido A - consulta exitosa que retorna 200 OK](docs/recorrido-a-200-ok.png)
+
+### Recorrido B — recurso inexistente (`404 Not Found`)
+
+| Paso | Qué ocurre |
+|---:|---|
+| 1 | Postman envía `GET /api/productos/999` al puerto 8080. |
+| 2 | El `DispatcherServlet` enruta **al mismo método** y liga `@PathVariable Long id = 999`. |
+| 3 | El controlador busca el ID 999 dentro de la lista en memoria. |
+| 4 | No lo encuentra: no se obtiene ningún objeto Java. |
+| 5 | `ResponseEntity.notFound().build()` construye una respuesta sin cuerpo; Jackson **no se invoca**. |
+| 6 | La respuesta viaja a Postman con `404 Not Found` y sin cuerpo. |
+
+![Recorrido B - recurso inexistente que retorna 404 Not Found](docs/recorrido-b-404.png)
+
+### Qué cambia entre ambos recorridos
+
+Los pasos 1 a 3 son **idénticos**: misma URI, mismo método HTTP, mismo `DispatcherServlet`, mismo método
+del controlador y misma variable de ruta. La diferencia aparece en un único punto —el resultado de la
+búsqueda— y de ahí se derivan todas las demás.
+
+| | Recorrido A | Recorrido B |
+|---|---|---|
+| Resultado de la búsqueda | Encuentra el producto | No encuentra nada |
+| Objeto Java obtenido | Un `Producto` | Ninguno |
+| Participación de Jackson | Se ejecuta y serializa el objeto | Nunca se invoca: no hay nada que convertir |
+| Cuerpo de la respuesta | JSON del producto | Vacío |
+| Código de estado | `200 OK` | `404 Not Found` |
+| Pasos totales | 7 | 6 |
+
+En el código esa bifurcación es una sola expresión del método `obtenerPorId`:
+
+```java
+return productos.stream()
+        .filter(producto -> producto.getId().equals(id))
+        .findFirst()
+        .map(ResponseEntity::ok)                              // recorrido A
+        .orElseGet(() -> ResponseEntity.notFound().build());  // recorrido B
+```
+
+El `map` corresponde al recorrido A y el `orElseGet` al recorrido B. Por eso el diagrama del recorrido B
+muestra el bloque de Jackson atenuado y con borde punteado: forma parte de la arquitectura, pero en ese
+trayecto no llega a ejecutarse.
+
+Conviene subrayar que el `404` **no representa una falla de la aplicación**. La petición estaba bien
+formada, el servidor la procesó correctamente y respondió que el recurso identificado por esa URI no
+existe. Por eso pertenece a la familia `4xx` —error del cliente, que solicitó algo inexistente— y no a
+la familia `5xx`, reservada para errores del servidor.
