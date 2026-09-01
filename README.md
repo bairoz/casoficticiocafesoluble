@@ -249,6 +249,80 @@ Started CatalogoProductosApplication in 0.7 seconds
 
 - [x] **Fase 1** — Especificación técnica de la API y análisis obligatorio.
 - [x] **Fase 2** — Proyecto Spring Boot configurado y ejecutándose sin errores.
-- [ ] **Fase 3** — Modelar `Producto`, cargar 8 productos en memoria e implementar el controlador.
+- [x] **Fase 3** — Modelar `Producto`, cargar 8 productos en memoria e implementar el controlador.
 - [ ] **Fase 4** — Matriz de 6 pruebas en Postman, documentadas e interpretadas.
 - [ ] **Fase 5** — Diagrama de arquitectura en draw.io con los dos recorridos.
+
+---
+
+## Fase 3 — Modelado e implementación
+
+La implementación conserva sin cambios la especificación definida en la Fase 1: utiliza las mismas
+rutas, métodos HTTP, formas de respuesta y códigos de estado. Por tanto, no fue necesario modificar ni
+justificar ninguna desviación del contrato original.
+
+### Cambios realizados y justificación
+
+**1. Se creó `model/Producto.java`.**
+
+La clase representa el recurso del dominio y contiene exactamente los cinco atributos especificados:
+`id`, `nombre`, `presentacion`, `categoria` y `disponible`. Se incluyó un constructor vacío para que
+Jackson pueda crear objetos a partir del JSON recibido en un `POST`, y un constructor con todos los
+campos para cargar claramente los datos iniciales. Los métodos *getter* y *setter* permiten que Jackson
+transforme automáticamente objetos Java a JSON y JSON a objetos Java.
+
+**2. Se creó `controller/ProductoController.java` como controlador REST.**
+
+`@RestController` registra la clase como componente web y hace que los valores retornados se escriban
+directamente en el cuerpo HTTP como JSON. `@RequestMapping("/api/productos")` centraliza la ruta base,
+evita repetirla en cada operación y mantiene un mapeo coherente con la URI de colección acordada en la
+Fase 1. El controlador se encuentra bajo el paquete base de la aplicación para que el escaneo automático
+de Spring lo detecte sin configuración adicional.
+
+**3. Se cargaron ocho productos ficticios en memoria.**
+
+Se utilizó una `ArrayList<Producto>` porque el alcance del taller exige persistencia temporal y excluye
+una base de datos. Los productos se crean en el constructor del controlador con identificadores del 1
+al 8, lo que garantiza que la colección esté disponible desde el arranque. Al reiniciar la aplicación,
+los productos agregados durante la ejecución se pierden, comportamiento esperado para almacenamiento
+en memoria.
+
+**4. Se implementó `GET /api/productos`.**
+
+`@GetMapping` sin una ruta adicional representa la consulta de la colección completa. El método retorna
+la lista de productos; Spring y Jackson la convierten en un arreglo JSON y Spring responde
+automáticamente con `200 OK`, tal como establece la especificación.
+
+**5. Se implementó `GET /api/productos/{id}`.**
+
+`@PathVariable` obtiene de la URI el identificador solicitado. La lista se recorre hasta encontrar un
+producto con ese `id`. Se utilizó `ResponseEntity` porque esta operación tiene dos resultados HTTP
+posibles: devuelve el producto y `200 OK` cuando existe, o una respuesta sin cuerpo y `404 Not Found`
+cuando no existe.
+
+**6. Se implementó `POST /api/productos`.**
+
+`@RequestBody` convierte el JSON de entrada en un objeto `Producto`. El servidor reemplaza cualquier
+`id` recibido y asigna uno propio mediante `AtomicLong`, iniciado en 9 porque los ocho productos
+precargados ocupan los identificadores anteriores. Esto mantiene identificadores consecutivos y evita
+duplicados si llegan solicitudes simultáneas. El producto se agrega a la colección y se retorna con su
+nuevo identificador y el código `201 Created`, diferenciando correctamente una creación de una consulta.
+
+### Estructura agregada
+
+```text
+src/main/java/com/cafesoluble/catalogo/
+├── controller/
+│   └── ProductoController.java
+└── model/
+    └── Producto.java
+```
+
+### Correspondencia con la especificación
+
+| Requisito | Implementación | Resultado |
+|---|---|---|
+| Consultar la colección | `GET /api/productos` | Arreglo JSON y `200 OK` |
+| Consultar por identificador | `GET /api/productos/{id}` | Objeto JSON y `200 OK` |
+| Registrar un producto | `POST /api/productos` | Objeto creado con ID y `201 Created` |
+| Consultar un ID inexistente | `GET /api/productos/{id}` | Respuesta sin cuerpo y `404 Not Found` |
