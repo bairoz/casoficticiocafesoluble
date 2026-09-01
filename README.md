@@ -430,7 +430,8 @@ en `createdId` y verifica el nombre, confirmando que el elemento agregado es el 
 ## Fase 5 — Diagrama de arquitectura
 
 El diagrama se encuentra en [`docs/arquitectura.drawio`](docs/arquitectura.drawio) y contiene **dos
-páginas**, una por cada recorrido exigido. Para abrirlo: entrar a [draw.io](https://app.diagrams.net),
+páginas**, una por cada recorrido exigido. Ambas se incluyen además como imágenes en `docs/` para poder
+consultarlas sin abrir el editor. Para abrirlo: entrar a [draw.io](https://app.diagrams.net),
 elegir `File` → `Open From` → `Device` y seleccionar el archivo. Las dos páginas aparecen como pestañas
 en la parte inferior del editor.
 
@@ -469,6 +470,8 @@ Ambas páginas muestran la misma arquitectura; lo que cambia es el trayecto dibu
 | 6 | Jackson serializa el objeto a JSON y lo escribe en el cuerpo de la respuesta. |
 | 7 | La respuesta viaja a Postman con `200 OK`, `Content-Type: application/json` y el JSON del producto. |
 
+![Recorrido A - consulta exitosa que retorna 200 OK](docs/recorrido-a-200-ok.png)
+
 ### Recorrido B — recurso inexistente (`404 Not Found`)
 
 | Paso | Qué ocurre |
@@ -479,6 +482,8 @@ Ambas páginas muestran la misma arquitectura; lo que cambia es el trayecto dibu
 | 4 | No lo encuentra: no se obtiene ningún objeto Java. |
 | 5 | `ResponseEntity.notFound().build()` construye una respuesta sin cuerpo; Jackson **no se invoca**. |
 | 6 | La respuesta viaja a Postman con `404 Not Found` y sin cuerpo. |
+
+![Recorrido B - recurso inexistente que retorna 404 Not Found](docs/recorrido-b-404.png)
 
 ### Qué cambia entre ambos recorridos
 
