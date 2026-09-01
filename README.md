@@ -250,7 +250,7 @@ Started CatalogoProductosApplication in 0.7 seconds
 - [x] **Fase 1** — Especificación técnica de la API y análisis obligatorio.
 - [x] **Fase 2** — Proyecto Spring Boot configurado y ejecutándose sin errores.
 - [x] **Fase 3** — Modelar `Producto`, cargar 8 productos en memoria e implementar el controlador.
-- [ ] **Fase 4** — Matriz de 6 pruebas en Postman, documentadas e interpretadas.
+- [x] **Fase 4** — Matriz de 6 pruebas en Postman, documentadas e interpretadas.
 - [ ] **Fase 5** — Diagrama de arquitectura en draw.io con los dos recorridos.
 
 ---
@@ -326,3 +326,101 @@ src/main/java/com/cafesoluble/catalogo/
 | Consultar por identificador | `GET /api/productos/{id}` | Objeto JSON y `200 OK` |
 | Registrar un producto | `POST /api/productos` | Objeto creado con ID y `201 Created` |
 | Consultar un ID inexistente | `GET /api/productos/{id}` | Respuesta sin cuerpo y `404 Not Found` |
+
+---
+
+## Fase 4 — Pruebas en Postman
+
+Se creó la colección importable
+[`postman/CatalogoProductos-Fase4.postman_collection.json`](postman/CatalogoProductos-Fase4.postman_collection.json)
+con seis solicitudes ordenadas y pruebas automáticas. La colección usa la variable `baseUrl` con el
+valor `http://localhost:8080` para mantener la dirección centralizada y la variable `createdId` para
+pasar a las pruebas posteriores el identificador generado por el `POST`.
+
+### Preparación y ejecución
+
+1. Reiniciar la aplicación para recuperar el estado inicial de ocho productos en memoria.
+2. Importar en Postman el archivo `postman/CatalogoProductos-Fase4.postman_collection.json`.
+3. Abrir la colección **Café Soluble S.A. - Fase 4**.
+4. Seleccionar **Run collection** y ejecutar las solicitudes en el orden numérico definido.
+5. Confirmar que todas las aserciones de la pestaña **Test Results** aparezcan aprobadas.
+
+El orden es importante porque la prueba 5 crea el producto con ID 9 y la prueba 6 verifica el cambio
+causado por esa solicitud. Si la colección se ejecuta nuevamente sin reiniciar la aplicación,
+habrá más de nueve productos y la prueba de cantidad fallará correctamente, pues el estado inicial ya
+no será el documentado.
+
+### Matriz de pruebas
+
+Las seis solicitudes se ejecutaron contra la aplicación local el 31 de agosto de 2026, comenzando con
+los ocho productos precargados.
+
+| N.º | Objetivo | Método | URL | JSON de entrada | Código HTTP | Respuesta recibida | Conclusión técnica |
+|---:|---|---|---|---|---|---|---|
+| 1 | Verificar la consulta de la colección completa | `GET` | `/api/productos` | No corresponde | `200 OK` | Arreglo JSON con 8 productos, IDs 1–8 | La API retorna todos los productos en JSON; coincide con la especificación. |
+| 2 | Verificar la consulta de un ID existente | `GET` | `/api/productos/3` | No corresponde | `200 OK` | Un objeto: **Café Descafeinado**, ID 3 | Retorna exactamente un recurso y no un arreglo; coincide con la especificación. |
+| 3 | Verificar que el primer ID corresponda al recurso solicitado | `GET` | `/api/productos/1` | No corresponde | `200 OK` | Un objeto: **Café Instantáneo Clásico**, ID 1 | La respuesta corresponde al primer recurso solicitado; coincide con la especificación. |
+| 4 | Verificar el manejo de un ID inexistente | `GET` | `/api/productos/999` | No corresponde | `404 Not Found` | Sin cuerpo, `Content-Length: 0` | El código comunica coherentemente que el recurso no existe; coincide con la especificación. |
+| 5 | Verificar el registro de un producto válido | `POST` | `/api/productos` | JSON mostrado debajo, sin `id` | `201 Created` | Objeto creado con los datos enviados e ID 9 asignado | La API recibe JSON, asigna el ID y comunica la creación; coincide con la especificación. |
+| 6 | Verificar que el producto nuevo aparezca en la colección | `GET` | `/api/productos` | No corresponde | `200 OK` | Arreglo con 9 productos que incluye el ID 9 | El producto creado permanece en memoria y aparece en la nueva consulta; coincide con la especificación. |
+
+JSON enviado en la prueba 5:
+
+```json
+{
+  "nombre": "Café Orgánico Instantáneo",
+  "presentacion": "120 g",
+  "categoria": "Café orgánico",
+  "disponible": true
+}
+```
+
+Respuesta obtenida:
+
+```json
+{
+  "id": 9,
+  "nombre": "Café Orgánico Instantáneo",
+  "presentacion": "120 g",
+  "categoria": "Café orgánico",
+  "disponible": true
+}
+```
+
+### Interpretación de los resultados
+
+**Prueba 1 — colección inicial.** El arreglo de ocho elementos confirma que los datos ficticios se
+cargan al iniciar la aplicación. El código `200` demuestra que la URI de colección existe y puede
+consultarse correctamente.
+
+**Prueba 2 — recurso existente.** La API interpretó el segmento `3` como variable de ruta y devolvió un
+solo objeto, no un arreglo. La coincidencia entre el ID solicitado y el ID recibido demuestra que la
+búsqueda individual funciona.
+
+**Prueba 3 — primer ID existente.** La respuesta contiene el ID 1 y los datos de Café Instantáneo
+Clásico. Esto comprueba específicamente el límite inferior de los identificadores precargados y confirma
+que la respuesta corresponde al recurso solicitado.
+
+**Prueba 4 — recurso inexistente.** El código `404` indica que la solicitud estaba bien formada, pero no
+existe un producto con ID 999. La respuesta sin cuerpo evita presentar como producto una estructura de
+error y respeta el contrato definido en la Fase 1.
+
+**Prueba 5 — creación.** El cliente envió los datos descriptivos sin `id`; el servidor asignó el ID 9,
+almacenó el objeto y lo devolvió con `201`. Esto confirma la conversión JSON a Java en la entrada y de
+Java a JSON en la respuesta, además de distinguir semánticamente una creación exitosa.
+
+**Prueba 6 — nueva consulta de la colección.** El aumento de ocho a nueve elementos demuestra que el `POST`
+modificó el estado compartido de la aplicación. El producto persiste durante la ejecución actual porque
+se encuentra en la lista en memoria. Además de comprobar la nueva cantidad, Postman busca el ID guardado
+en `createdId` y verifica el nombre, confirmando que el elemento agregado es el que se envió en la prueba 5.
+
+### Justificación de los cambios de esta fase
+
+- Se agregó solamente un archivo de Postman; el código de la API no necesitó cambios porque su
+  comportamiento coincide con la especificación.
+- Cada solicitud contiene aserciones de código HTTP y contenido, de modo que el resultado no depende
+  únicamente de una inspección visual.
+- El `POST` guarda dinámicamente su ID en `createdId`; así las pruebas posteriores verifican el recurso
+  realmente creado en vez de depender solo de un identificador escrito manualmente.
+- Se documentaron preparación, entradas, resultados esperados, resultados reales e interpretación para
+  que la ejecución sea repetible y verificable por otra persona.
