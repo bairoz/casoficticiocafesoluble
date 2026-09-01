@@ -1,0 +1,172 @@
+{
+  "info": {
+    "_postman_id": "20d46325-1262-45a0-976e-7e531ad5340f",
+    "name": "Café Soluble S.A. - Fase 4",
+    "description": "Colección de seis pruebas ejecutadas en orden para verificar la API REST del catálogo de productos. Reinicie la aplicación antes de ejecutar la colección para comenzar con los ocho productos iniciales.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "createdId",
+      "value": "9"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Consultar colección inicial",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/productos",
+        "description": "Comprueba que la aplicación inicia con los ocho productos ficticios cargados en memoria."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Retorna un arreglo de 8 productos', () => {",
+              "  const productos = pm.response.json();",
+              "  pm.expect(productos).to.be.an('array').with.lengthOf(8);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Consultar producto existente",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/productos/3",
+        "description": "Comprueba la consulta de un recurso individual mediante una variable en la URI."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Retorna el producto con ID 3', () => {",
+              "  const producto = pm.response.json();",
+              "  pm.expect(producto.id).to.eql(3);",
+              "  pm.expect(producto.nombre).to.eql('Café Descafeinado');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Consultar el primer ID existente",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/productos/1",
+        "description": "Comprueba que la respuesta corresponde exactamente al primer recurso solicitado."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Retorna el primer producto', () => {",
+              "  const producto = pm.response.json();",
+              "  pm.expect(producto.id).to.eql(1);",
+              "  pm.expect(producto.nombre).to.eql('Café Instantáneo Clásico');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Consultar producto inexistente",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/productos/999",
+        "description": "Comprueba que la API comunica con un código HTTP coherente que el recurso no existe."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Responde 404 Not Found', () => pm.response.to.have.status(404));",
+              "pm.test('No retorna cuerpo de recurso', () => pm.expect(pm.response.text()).to.eql(''));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Registrar producto válido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Café Orgánico Instantáneo\",\n  \"presentacion\": \"120 g\",\n  \"categoria\": \"Café orgánico\",\n  \"disponible\": true\n}"
+        },
+        "url": "{{baseUrl}}/api/productos",
+        "description": "Envía un producto válido en JSON sin ID; el servidor debe asignarlo y comunicar la creación."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Responde 201 Created', () => pm.response.to.have.status(201));",
+              "const producto = pm.response.json();",
+              "pm.collectionVariables.set('createdId', producto.id);",
+              "pm.test('El servidor asigna el ID', () => pm.expect(producto.id).to.be.a('number'));",
+              "pm.test('Conserva los datos enviados', () => {",
+              "  pm.expect(producto.nombre).to.eql('Café Orgánico Instantáneo');",
+              "  pm.expect(producto.disponible).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Consultar nuevamente la colección",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/productos",
+        "description": "Comprueba que el nuevo producto aparece al consultar nuevamente la colección."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Responde 200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Retorna el nuevo producto en la colección', () => {",
+              "  const productos = pm.response.json();",
+              "  pm.expect(productos).to.be.an('array').with.lengthOf(9);",
+              "  const creado = productos.find(p => p.id === Number(pm.collectionVariables.get('createdId')));",
+              "  pm.expect(creado).to.be.an('object');",
+              "  pm.expect(creado.nombre).to.eql('Café Orgánico Instantáneo');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
